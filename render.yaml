@@ -1,23 +1,12 @@
 services:
-  # Official Hindsight Memory Service
+  # OpsMemory AI Unified Full-Stack Production Service
   - type: web
-    name: opsmemory-hindsight
-    runtime: image
-    image:
-      url: ghcr.io/vectorize-io/hindsight:latest
-    plan: free
-    envVars:
-      - key: PORT
-        value: 8888
-
-  # OpsMemory Backend API
-  - type: web
-    name: opsmemory-backend
+    name: opsmemory-ai
     runtime: node
-    rootDir: backend
     plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
+    region: oregon
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
@@ -26,7 +15,4 @@ services:
       - key: HINDSIGHT_BANK_ID
         value: opsmemory-production
       - key: HINDSIGHT_URL
-        fromService:
-          type: web
-          name: opsmemory-hindsight
-          property: host
+        value: http://localhost:8888
