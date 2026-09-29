@@ -171,7 +171,41 @@ npm run dev
 - **Frontend Dashboard**: [http://localhost:5173](http://localhost:5173)
 - **Backend API**: [http://localhost:3001/api/health](http://localhost:3001/api/health)
 
-### Option 2: Run with Docker Compose (Includes Official Hindsight Server)
+### Option 2: Unified Production Deployment (Single-Port Full Stack)
+
+OpsMemory AI features an integrated production engine where the backend serves both the API endpoints and the compiled React SPA on a single port:
+
+```bash
+# 1. Build both frontend and backend
+npm run build
+
+# 2. Run the unified production engine
+npm run start
+```
+
+- **Unified Production URL**: [http://localhost:3001](http://localhost:3001)
+
+### Option 3: Cloud Deployment
+
+#### A. Deploy to Render (Turnkey Blueprint)
+This repository includes a pre-configured [`render.yaml`](./render.yaml) file:
+1. Push this repository to your GitHub account.
+2. In [Render Dashboard](https://dashboard.render.com), click **New +** $\rightarrow$ **Blueprint**.
+3. Connect your GitHub repository. Render automatically reads `render.yaml`, builds the frontend and backend, and deploys the unified production service.
+
+#### B. Deploy to Railway
+This repository includes a pre-configured [`railway.json`](./railway.json) file:
+1. In [Railway Dashboard](https://railway.app), click **New Project** $\rightarrow$ **Deploy from GitHub repo**.
+2. Select your repository. Railway automatically builds and assigns a public HTTPS domain.
+
+#### C. Deploy Frontend to Vercel
+This repository includes [`frontend/vercel.json`](./frontend/vercel.json):
+1. In [Vercel Dashboard](https://vercel.com), click **Add New Project** and select this repository.
+2. Set the Root Directory to `frontend`.
+3. Set the environment variable `VITE_API_URL` to your backend URL.
+4. Click **Deploy**.
+
+### Option 4: Run with Docker Compose (Includes Official Hindsight Server)
 
 ```bash
 docker compose up --build
