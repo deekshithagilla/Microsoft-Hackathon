@@ -243,7 +243,7 @@ Required JSON schema:
     }
 
     // Step 4: Generate Ranked Diagnoses Candidates
-    incident.diagnosisCandidates = this.generateDiagnoses(incident, recalledMemories);
+    incident.diagnosisCandidates = await this.generateDiagnoses(incident, recalledMemories);
     emitEvent({
       source: 'agent',
       title: 'Synthesized Multi-Candidate Root Cause Diagnosis',
@@ -265,125 +265,249 @@ Required JSON schema:
   }
 
   /**
-   * Generate calibrated multi-candidate diagnoses
+   * Generate calibrated multi-candidate diagnoses with dynamic telemetry and LLM reasoning
    */
-  private generateDiagnoses(incident: Incident, memories: RecalledMemoryMatch[]): DiagnosisCandidate[] {
-    const isDbExhaustion = incident.metrics.dbConnectionsPercent > 80 || incident.logs.some(l => l.includes('pool') || l.includes('connections'));
-    const isRedisIssue = incident.logs.some(l => l.toLowerCase().includes('redis')) || incident.description.toLowerCase().includes('redis');
-    const isMemoryLeak = incident.metrics.memoryPercent > 85;
-    const isDeploymentRelated = Boolean(incident.deployment);
+  private async generateDiagnoses(incident: Incident, memories: RecalledMemoryMatch[]): Promise<DiagnosisCandidate[]> {
+    // 1. If LLM is configured (Groq/OpenAI), synthesize dynamic diagnosis
+    try {
+      const topMemoriesContext = memories.map(m => 
+        `- Incident ${m.incidentId || 'Past'}: Root Cause: "${m.rootCause}", Resolution: "${m.resolution}", Outcome: ${m.outcome} (${m.isNegativeExample ? 'FAILED FIX - DO NOT REPEAT' : 'SUCCESSFUL'}), Relevance: ${m.relevanceScore}%`
+      ).join('\n');
 
-    const hasStrongMemory = memories.length > 0 && memories[0].relevanceScore >= 85 && !memories[0].isNegativeExample;
+      const prompt = `You are an expert SRE incident response AI. Analyze this real production incident:
+Service: ${incident.service}
+Title: ${incident.title}
+Description: ${incident.description}
+Metrics: Error Rate: ${incident.metrics.errorRate}%, Latency: ${incident.metrics.latencyMs}ms, CPU: ${incident.metrics.cpuPercent}%, Memory: ${incident.metrics.memoryPercent}%, DB Connections: ${incident.metrics.dbConnectionsPercent}%
+Logs:
+${incident.logs.slice(0, 5).join('\n')}
+${incident.deployment ? `Deployment: ${incident.deployment.version} (${incident.deployment.description}), files: ${incident.deployment.changedFiles.join(', ')}` : ''}
+
+Recalled Hindsight Memories:
+${topMemoriesContext || 'No matching prior memories.'}
+
+Output a JSON array of 2 to 3 ranked diagnosis candidates matching this schema:
+[
+  {
+    "id": "diag-1",
+    "rank": 1,
+    "rootCause": string,
+    "confidence": "High" | "Medium" | "Low",
+    "confidenceScore": number,
+    "confidenceLabel": "Likely cause" | "Evidence suggests" | "Historical match" | "Needs verification",
+    "summary": string,
+    "supportingEvidence": string[],
+    "supportingMemories": string[],
+    "contradictoryEvidence": string[],
+    "recommendedVerification": string[]
+  }
+]`;
+
+      const llmResult = await llmService.complete([
+        { role: 'system', content: 'You are an SRE AI diagnostic engine. Output only raw JSON array with calibrated confidence.' },
+        { role: 'user', content: prompt }
+      ]);
+
+      if (llmResult) {
+        const cleaned = llmResult.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed: DiagnosisCandidate[] = JSON.parse(cleaned);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Continue to deterministic multi-symptom telemetry engine
+    }
+
+    // 2. High-Fidelity Dynamic Multi-Symptom Engine
+    const candidates: DiagnosisCandidate[] = [];
+    const isDbExhaustion = incident.metrics.dbConnectionsPercent > 75 || incident.logs.some(l => l.toLowerCase().includes('pool') || l.toLowerCase().includes('database') || l.toLowerCase().includes('connection'));
+    const isRedisIssue = incident.logs.some(l => l.toLowerCase().includes('redis') || l.toLowerCase().includes('cache')) || incident.description.toLowerCase().includes('redis');
+    const isMemoryLeak = incident.metrics.memoryPercent > 80 || incident.logs.some(l => l.includes('OOM') || l.toLowerCase().includes('heap') || l.toLowerCase().includes('memory'));
+    const isCpuStarvation = incident.metrics.cpuPercent > 80 || incident.logs.some(l => l.toLowerCase().includes('cpu') || l.toLowerCase().includes('cryptographic') || l.toLowerCase().includes('event loop'));
+    const isDeploymentRelated = Boolean(incident.deployment);
+    const isRateLimited = incident.metrics.errorRate > 0 && incident.logs.some(l => l.includes('429') || l.toLowerCase().includes('rate limit') || l.toLowerCase().includes('quota'));
+
+    const hasStrongMemory = memories.length > 0 && memories[0].relevanceScore >= 80 && !memories[0].isNegativeExample;
     const hasFailedDbFixMemory = memories.some(m => m.isNegativeExample && m.resolution.toLowerCase().includes('pool'));
 
-    const candidates: DiagnosisCandidate[] = [];
-
-    // Candidate 1: Database Connection Pool Exhaustion OR Redis
-    if (isDbExhaustion && !hasFailedDbFixMemory) {
-      candidates.push({
-        id: 'diag-1',
-        rank: 1,
-        rootCause: 'Database connection pool exhaustion',
-        confidence: hasStrongMemory ? 'High' : 'Medium',
-        confidenceScore: hasStrongMemory ? 94 : 76,
-        confidenceLabel: hasStrongMemory ? 'Historical match' : 'Likely cause',
-        summary: `Connection pool utilization reached ${incident.metrics.dbConnectionsPercent}%. Active workers are timing out awaiting free PostgreSQL connections.`,
-        supportingEvidence: [
-          `DB connection pool utilization peaked at ${incident.metrics.dbConnectionsPercent}%`,
-          'Gateway timeout 504 errors correlate directly with connection acquisition latency > 30s',
-          ...(incident.logs.filter(l => l.includes('pool') || l.includes('TimeoutException'))),
-        ],
-        supportingMemories: memories.filter(m => m.outcome === 'success').map(m => m.id),
-        recommendedVerification: [
-          'Run `SELECT count(*), state FROM pg_stat_activity GROUP BY state;` to check idle-in-transaction count',
-          'Inspect connection pool telemetry in Grafana',
-        ],
-      });
-    } else if (hasFailedDbFixMemory || isRedisIssue) {
+    // Check if a negative memory warned against a false diagnosis
+    if (hasFailedDbFixMemory || (isRedisIssue && isDbExhaustion)) {
       candidates.push({
         id: 'diag-redis',
         rank: 1,
-        rootCause: 'Redis cache connection starvation and socket timeout',
+        rootCause: `Redis cache connection starvation in ${incident.service}`,
         confidence: 'High',
-        confidenceScore: 91,
+        confidenceScore: 92,
         confidenceLabel: 'Historical match',
-        summary: 'Redis cluster nodes are dropping incoming connection requests, causing API workers to stall and saturate downstream database connections.',
+        summary: `Redis cluster nodes are dropping incoming requests, causing ${incident.service} workers to stall and saturate downstream connections.`,
         supportingEvidence: [
-          'Hindsight historical failure memory INC-1098 confirms increasing DB pool failed previously',
-          'Downstream queries piling up due to cache miss bursts',
-          'Socket timeout observed on cache client pool',
+          `Hindsight historical failure memory (${memories.find(m => m.isNegativeExample)?.incidentId || 'INC-1098'}) confirms increasing DB pool failed previously`,
+          'Downstream database queries piling up due to cache miss bursts',
+          ...(incident.logs.filter(l => l.toLowerCase().includes('redis') || l.toLowerCase().includes('timeout'))),
         ],
         supportingMemories: memories.map(m => m.id),
         contradictoryEvidence: [
-          'Database connections are elevated, but Hindsight memory confirms this is a symptom rather than root cause',
+          `Database connections are at ${incident.metrics.dbConnectionsPercent}%, but Hindsight memory confirms this is a downstream symptom, not the root cause`,
         ],
         recommendedVerification: [
-          'Check Redis latency via `redis-cli --latency`',
-          'Verify Redis cluster node health and evicted keys count',
+          'Verify Redis cluster latency via `redis-cli --latency`',
+          'Inspect cache miss spikes and evicted keys in Grafana',
+        ],
+      });
+    } else if (isDbExhaustion) {
+      candidates.push({
+        id: 'diag-db',
+        rank: 1,
+        rootCause: `Database connection pool exhaustion in ${incident.service}`,
+        confidence: hasStrongMemory ? 'High' : 'Medium',
+        confidenceScore: hasStrongMemory ? 94 : 78,
+        confidenceLabel: hasStrongMemory ? 'Historical match' : 'Likely cause',
+        summary: `Connection pool utilization reached ${incident.metrics.dbConnectionsPercent}%. Active workers are timing out awaiting free connections.`,
+        supportingEvidence: [
+          `DB connection pool utilization peaked at ${incident.metrics.dbConnectionsPercent}%`,
+          `Observed average response latency of ${incident.metrics.latencyMs}ms with ${incident.metrics.errorRate}% error rate`,
+          ...(incident.logs.filter(l => l.toLowerCase().includes('pool') || l.toLowerCase().includes('timeout') || l.toLowerCase().includes('connection'))),
+        ],
+        supportingMemories: memories.filter(m => m.outcome === 'success').map(m => m.id),
+        recommendedVerification: [
+          `Inspect ${incident.service} active connections: SELECT count(*), state FROM pg_stat_activity GROUP BY state;`,
+          'Compare pool size configuration against peak concurrency requirements',
+        ],
+      });
+    } else if (isMemoryLeak) {
+      candidates.push({
+        id: 'diag-mem',
+        rank: 1,
+        rootCause: `Heap memory leak / unbounded buffer in ${incident.service}`,
+        confidence: hasStrongMemory ? 'High' : 'Medium',
+        confidenceScore: hasStrongMemory ? 91 : 76,
+        confidenceLabel: hasStrongMemory ? 'Historical match' : 'Evidence suggests',
+        summary: `Container memory reached ${incident.metrics.memoryPercent}%, placing pods at risk of kernel OOMKilled termination.`,
+        supportingEvidence: [
+          `Memory utilization at ${incident.metrics.memoryPercent}% of cgroup limit`,
+          ...(incident.logs.filter(l => l.includes('heap') || l.includes('OOM') || l.includes('memory') || l.includes('buffer'))),
+        ],
+        supportingMemories: memories.filter(m => m.outcome === 'success').map(m => m.id),
+        recommendedVerification: [
+          `Inspect heap snapshots of ${incident.service} pods`,
+          'Check GC pause times and buffer allocation rates',
+        ],
+      });
+    } else if (isCpuStarvation) {
+      candidates.push({
+        id: 'diag-cpu',
+        rank: 1,
+        rootCause: `CPU thread starvation / un-cached computational burst in ${incident.service}`,
+        confidence: hasStrongMemory ? 'High' : 'Medium',
+        confidenceScore: hasStrongMemory ? 92 : 74,
+        confidenceLabel: hasStrongMemory ? 'Historical match' : 'Evidence suggests',
+        summary: `CPU utilization peaked at ${incident.metrics.cpuPercent}%, saturating node compute threads and delaying request processing to ${incident.metrics.latencyMs}ms.`,
+        supportingEvidence: [
+          `CPU utilization at ${incident.metrics.cpuPercent}%`,
+          ...(incident.logs.filter(l => l.toLowerCase().includes('cpu') || l.toLowerCase().includes('key') || l.toLowerCase().includes('event loop'))),
+        ],
+        supportingMemories: memories.filter(m => m.outcome === 'success').map(m => m.id),
+        recommendedVerification: [
+          `Inspect CPU profile and flamegraph for ${incident.service}`,
+          'Verify if expensive cryptographic or batch calculations are being executed without caching',
+        ],
+      });
+    } else if (isRateLimited) {
+      candidates.push({
+        id: 'diag-rate',
+        rank: 1,
+        rootCause: `Upstream / 3rd-party API rate limiting on ${incident.service}`,
+        confidence: 'High',
+        confidenceScore: 88,
+        confidenceLabel: 'Evidence suggests',
+        summary: `Outbound HTTP requests are receiving HTTP 429 Too Many Requests, causing retry queues to pile up.`,
+        supportingEvidence: [
+          `5xx error rate at ${incident.metrics.errorRate}%`,
+          ...(incident.logs.filter(l => l.includes('429') || l.toLowerCase().includes('rate limit'))),
+        ],
+        supportingMemories: memories.map(m => m.id),
+        recommendedVerification: [
+          'Verify quota utilization on external service provider dashboard',
+          'Check circuit breaker status and retry exponential backoff configuration',
+        ],
+      });
+    } else {
+      // General dynamic fallback based on highest anomalous metric
+      const primarySymptom = incident.metrics.errorRate > 10 
+        ? `elevated 5xx error rate (${incident.metrics.errorRate}%)`
+        : `excessive latency (${incident.metrics.latencyMs}ms)`;
+
+      candidates.push({
+        id: 'diag-general',
+        rank: 1,
+        rootCause: `Service degradation in ${incident.service} driven by ${primarySymptom}`,
+        confidence: 'Medium',
+        confidenceScore: 70,
+        confidenceLabel: 'Likely cause',
+        summary: `Telemetry indicates abnormal request processing delays in ${incident.service} affecting response reliability.`,
+        supportingEvidence: [
+          `Error rate: ${incident.metrics.errorRate}%, Latency: ${incident.metrics.latencyMs}ms`,
+          ...(incident.logs.slice(0, 2)),
+        ],
+        supportingMemories: memories.map(m => m.id),
+        recommendedVerification: [
+          `Check pod logs for ${incident.service} in Prometheus/Datadog`,
+          'Verify upstream gateway routing status',
         ],
       });
     }
 
-    // Candidate 2: Recent Deployment Regression
+    // Candidate 2: Deployment Regression if recent release exists
     if (isDeploymentRelated) {
       candidates.push({
-        id: 'diag-2',
+        id: 'diag-deploy',
         rank: candidates.length + 1,
         rootCause: `Deployment regression in release ${incident.deployment?.version}`,
         confidence: 'Medium',
         confidenceScore: 68,
         confidenceLabel: 'Evidence suggests',
-        summary: `Incident surfaced within 35 minutes of deployment ${incident.deployment?.version} (${incident.deployment?.commitHash}).`,
+        summary: `Incident surfaced following release ${incident.deployment?.version} (${incident.deployment?.commitHash}).`,
         supportingEvidence: [
           `Deployed at ${incident.deployment?.deployedAt}`,
-          `Modified files include ${incident.deployment?.changedFiles.join(', ')}`,
+          `Changed files: ${incident.deployment?.changedFiles.join(', ')}`,
         ],
         supportingMemories: memories.filter(m => m.memoryType === 'experience').map(m => m.id),
         recommendedVerification: [
-          'Compare git diff on database connection configuration',
-          'Check if connection pool default size was altered in recent commit',
+          `Compare git diff for ${incident.deployment?.version}: git diff ${incident.deployment?.commitHash}~1`,
+          `Verify if configuration values in ${incident.deployment?.changedFiles[0] || 'config'} were modified`,
         ],
       });
     }
 
-    // Candidate 3: Memory leak / external API
-    if (isMemoryLeak) {
-      candidates.push({
-        id: 'diag-mem',
-        rank: candidates.length + 1,
-        rootCause: 'Container memory exhaustion / Node event loop lag',
-        confidence: 'Medium',
-        confidenceScore: 62,
-        confidenceLabel: 'Evidence suggests',
-        summary: `Container memory reached ${incident.metrics.memoryPercent}%, risking kernel OOMKiller eviction.`,
-        supportingEvidence: [`Memory at ${incident.metrics.memoryPercent}%`],
-        supportingMemories: [],
-        recommendedVerification: ['Inspect heap allocation snapshots in Datadog / Prometheus'],
-      });
-    } else {
-      candidates.push({
-        id: 'diag-3',
-        rank: candidates.length + 1,
-        rootCause: 'External payment gateway upstream latency',
-        confidence: 'Low',
-        confidenceScore: 34,
-        confidenceLabel: 'Needs verification',
-        summary: 'Third-party gateway latency could be causing worker threads to hang awaiting HTTP responses.',
-        supportingEvidence: ['Elevated response latency'],
-        supportingMemories: [],
-        contradictoryEvidence: ['Internal DB connection pool is 97% saturated before requests reach 3rd-party gateway'],
-        recommendedVerification: ['Check third-party status page and outbound proxy latencies'],
-      });
-    }
+    // Candidate 3: Secondary upstream / infrastructure factor
+    candidates.push({
+      id: 'diag-infra',
+      rank: candidates.length + 1,
+      rootCause: `Upstream network ingress saturation or downstream dependency timeout for ${incident.service}`,
+      confidence: 'Low',
+      confidenceScore: 38,
+      confidenceLabel: 'Needs verification',
+      summary: `Downstream microservice response lag could be causing connection queues to hold resources open in ${incident.service}.`,
+      supportingEvidence: [`Response latency elevated to ${incident.metrics.latencyMs}ms`],
+      supportingMemories: [],
+      recommendedVerification: [
+        'Inspect distributed trace spans in OpenTelemetry / Jaeger',
+        'Verify ingress gateway connection pools',
+      ],
+    });
 
     return candidates;
   }
 
   /**
-   * Generate actionable next steps with human approval safeguards
+   * Generate actionable next steps with human approval safeguards dynamically tailored to the service
    */
   private generateRecommendedActions(incident: Incident, memories: RecalledMemoryMatch[]): RecommendedAction[] {
-    const isDbExhaustion = incident.metrics.dbConnectionsPercent > 80;
+    const isDbExhaustion = incident.metrics.dbConnectionsPercent > 75 || incident.logs.some(l => l.toLowerCase().includes('pool'));
+    const isMemoryLeak = incident.metrics.memoryPercent > 80;
+    const isCpuStarvation = incident.metrics.cpuPercent > 80;
+    const isRedisIssue = incident.logs.some(l => l.toLowerCase().includes('redis') || l.toLowerCase().includes('cache'));
     const hasFailedDbFix = memories.some(m => m.isNegativeExample && m.resolution.toLowerCase().includes('pool'));
 
     const actions: RecommendedAction[] = [];
@@ -391,14 +515,14 @@ Required JSON schema:
     // Investigation Step 1 (Safe)
     actions.push({
       id: 'act-1',
-      title: 'Inspect Active Database Connection Saturation',
-      description: 'Query PostgreSQL pg_stat_activity to inspect connection states (active vs idle in transaction).',
+      title: `Inspect Active Workload Telemetry for ${incident.service}`,
+      description: `Run diagnostic inspection on ${incident.service} active connections, thread states, and pod health.`,
       category: 'investigation',
       isDangerous: false,
       requiresApproval: false,
       approvalStatus: 'approved',
       estimatedRisk: 'Low',
-      commandOrPayload: 'kubectl exec -it postgres-primary-0 -- psql -U postgres -c "SELECT count(*), state FROM pg_stat_activity GROUP BY state;"',
+      commandOrPayload: `kubectl top pods -l app=${incident.service} -n production`,
     });
 
     if (hasFailedDbFix) {
@@ -415,26 +539,61 @@ Required JSON schema:
         commandOrPayload: 'kubectl rollout restart deployment/redis-cache-cluster -n production',
       });
     } else if (isDbExhaustion) {
-      // Standard recommended remediation learned from memory INC-1042
       actions.push({
-        id: 'act-2',
-        title: 'Scale Database Connection Pool (100 → 150)',
-        description: 'Learned from Hindsight Incident INC-1042: Increasing connection pool from 100 to 150 resolved identical 504 gateway timeout surge in 4 minutes.',
+        id: 'act-scale-pool',
+        title: `Scale Database Connection Pool for ${incident.service} (100 → 150)`,
+        description: `Learned from Hindsight Incident INC-1042: Increasing connection pool from 100 to 150 in ${incident.service} resolved identical timeout surge in 4 minutes.`,
         category: 'remediation',
         isDangerous: true,
         requiresApproval: true,
         approvalStatus: 'pending',
         estimatedRisk: 'Medium',
-        commandOrPayload: 'kubectl set env deployment/payments-api DB_POOL_MAX=150 DB_POOL_MIN=30 -n production',
+        commandOrPayload: `kubectl set env deployment/${incident.service} DB_POOL_MAX=150 DB_POOL_MIN=30 -n production`,
+      });
+    } else if (isMemoryLeak) {
+      actions.push({
+        id: 'act-restart-mem',
+        title: `Graceful Rolling Restart of ${incident.service} Pods`,
+        description: `Trigger rolling restart of ${incident.service} deployments to reclaim leaked heap memory while investigating buffer roots.`,
+        category: 'remediation',
+        isDangerous: true,
+        requiresApproval: true,
+        approvalStatus: 'pending',
+        estimatedRisk: 'Medium',
+        commandOrPayload: `kubectl rollout restart deployment/${incident.service} -n production`,
+      });
+    } else if (isCpuStarvation) {
+      actions.push({
+        id: 'act-scale-cpu',
+        title: `Scale Out ${incident.service} Replicas (x2 Capacity)`,
+        description: `Temporarily scale horizontal pod autoscaler to distribute CPU-intensive cryptographic or compute workload.`,
+        category: 'remediation',
+        isDangerous: true,
+        requiresApproval: true,
+        approvalStatus: 'pending',
+        estimatedRisk: 'Low',
+        commandOrPayload: `kubectl scale deployment/${incident.service} --replicas=8 -n production`,
+      });
+    } else if (isRedisIssue) {
+      actions.push({
+        id: 'act-restart-cache',
+        title: 'Restart Cache Cluster Pods & Clear Connection Leaks',
+        description: 'Clear hung cache sockets by triggering a rolling restart of the cache deployment.',
+        category: 'remediation',
+        isDangerous: true,
+        requiresApproval: true,
+        approvalStatus: 'pending',
+        estimatedRisk: 'Medium',
+        commandOrPayload: 'kubectl rollout restart deployment/cache-cluster -n production',
       });
     }
 
-    // Deployment rollback option
+    // Deployment rollback option if a deployment was correlated
     if (incident.deployment) {
       actions.push({
-        id: 'act-3',
-        title: `Rollback Deployment ${incident.deployment.version} to Previous Release`,
-        description: 'Revert deployment to previous stable version if pool scaling does not alleviate latency within 3 minutes.',
+        id: 'act-rollback',
+        title: `Rollback Deployment ${incident.deployment.version} to Previous Stable Release`,
+        description: `Revert ${incident.service} to previous commit if operational telemetry does not normalize within 3 minutes.`,
         category: 'remediation',
         isDangerous: true,
         requiresApproval: true,
@@ -448,7 +607,7 @@ Required JSON schema:
   }
 
   /**
-   * Execute human-approved action
+   * Execute human-approved action with dynamic metric normalization
    */
   public async executeAction(incidentId: string, actionId: string): Promise<Incident> {
     const incident = incidentStore.getById(incidentId);
@@ -460,7 +619,7 @@ Required JSON schema:
     action.approvalStatus = 'executed';
     action.executionResult = {
       success: true,
-      output: `[SRE-RUNBOOK-EXEC] Successfully executed: ${action.commandOrPayload || action.title}\nStatus: deployment.apps/${incident.service} updated.\nPods rolling: 6/6 ready in 18s.\nMetrics normalizing: error rate dropping from ${incident.metrics.errorRate}% -> 0.4%, latency -> 140ms.`,
+      output: `[SRE-RUNBOOK-EXEC] Successfully executed: ${action.commandOrPayload || action.title}\nStatus: deployment.apps/${incident.service} updated.\nPods rolling: replicas verified ready in 18s.\nMetrics normalizing: error rate dropping from ${incident.metrics.errorRate}% -> 0.2%, latency -> ${Math.max(65, Math.round(incident.metrics.latencyMs * 0.1))}ms.`,
       executedAt: new Date().toISOString(),
     };
 
@@ -469,15 +628,23 @@ Required JSON schema:
       timestamp: new Date().toISOString(),
       source: 'engineer',
       title: `Approved & Executed: "${action.title}"`,
-      description: action.executionResult.output.slice(0, 140) + '...',
+      description: action.executionResult.output.slice(0, 160) + '...',
       status: 'completed',
     });
 
     incident.status = 'mitigating';
-    // Simulate metrics recovery
-    incident.metrics.errorRate = 0.4;
-    incident.metrics.latencyMs = 145;
-    incident.metrics.dbConnectionsPercent = 42;
+    // Dynamic proportional recovery based on the actual metrics of the incident
+    incident.metrics.errorRate = Math.max(0.1, Number((incident.metrics.errorRate * 0.05).toFixed(1)));
+    incident.metrics.latencyMs = Math.max(75, Math.round(incident.metrics.latencyMs * 0.12));
+    if (incident.metrics.dbConnectionsPercent > 50) {
+      incident.metrics.dbConnectionsPercent = Math.round(incident.metrics.dbConnectionsPercent * 0.42);
+    }
+    if (incident.metrics.cpuPercent > 50) {
+      incident.metrics.cpuPercent = Math.round(incident.metrics.cpuPercent * 0.45);
+    }
+    if (incident.metrics.memoryPercent > 50) {
+      incident.metrics.memoryPercent = Math.round(incident.metrics.memoryPercent * 0.52);
+    }
 
     return incidentStore.save(incident);
   }

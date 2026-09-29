@@ -119,31 +119,31 @@
     "status": "resolved",
     "description": "Sudden 504 timeouts and DB saturation",
     "environment": "production",
-    "createdAt": "2026-09-29T12:53:13.342Z",
-    "updatedAt": "2026-09-29T12:53:13.455Z",
+    "createdAt": "2026-09-29T16:00:42.318Z",
+    "updatedAt": "2026-09-29T16:00:42.491Z",
     "metrics": {
-      "errorRate": 0.4,
-      "latencyMs": 145,
-      "cpuPercent": 78,
-      "memoryPercent": 65,
-      "dbConnectionsPercent": 42,
-      "timestamp": "2026-09-29T12:53:13.342Z"
+      "errorRate": 1,
+      "latencyMs": 588,
+      "cpuPercent": 35,
+      "memoryPercent": 34,
+      "dbConnectionsPercent": 41,
+      "timestamp": "2026-09-29T16:00:42.318Z"
     },
     "logs": [
       "[ERROR] payments-api: TimeoutException: Timed out waiting for connection from pool \"pg-pool-main\""
     ],
     "timeline": [
       {
-        "id": "263d7ddd-fc60-43e2-ab4b-2fb55be1b75b",
-        "timestamp": "2026-09-29T12:53:13.343Z",
+        "id": "4f4d5339-a81b-44c7-9868-480e9d751e9c",
+        "timestamp": "2026-09-29T16:00:42.323Z",
         "source": "agent",
         "title": "Parsed Incident Metadata & Entities",
         "description": "Identified primary affected service: \"payments-api\" (Severity: P1). Extracted metrics baseline.",
         "status": "completed"
       },
       {
-        "id": "60302715-ac33-4f49-890d-b9e3c941be71",
-        "timestamp": "2026-09-29T12:53:13.344Z",
+        "id": "2b58d893-7ea4-4ea0-9b56-420467bb644d",
+        "timestamp": "2026-09-29T16:00:42.326Z",
         "source": "agent",
         "title": "Analyzed Application Logs & Metric Anomalies",
         "description": "Correlated telemetry: Error rate 19.5%, Latency 4900ms, DB connection saturation 97%.",
@@ -151,60 +151,60 @@
         "status": "completed"
       },
       {
-        "id": "23a45253-b426-433d-903c-a115dc304f3a",
-        "timestamp": "2026-09-29T12:53:13.345Z",
+        "id": "a4cadf55-c698-4aee-9e49-50d5de98f787",
+        "timestamp": "2026-09-29T16:00:42.329Z",
         "source": "hindsight",
         "title": "Queried Hindsight Memory Bank \"opsmemory-production\"",
         "description": "Executing multi-strategy recall (TEMPR) for service \"payments-api\" and observed symptom signatures...",
         "status": "in_progress"
       },
       {
-        "id": "f657dca4-50aa-44b7-a58a-3799f643f580",
-        "timestamp": "2026-09-29T12:53:13.364Z",
+        "id": "849662b8-cd0b-4e6a-96f3-feaef38e0b78",
+        "timestamp": "2026-09-29T16:00:42.368Z",
         "source": "hindsight",
         "title": "Recalled 4 Historical Incidents from Hindsight",
-        "description": "Found match INC-1042 (96% similarity). Historical root cause: \"Database connection pool exhaustion\". Previous outcome: SUCCESS (4m MTTR).",
-        "detail": "Current incident shares matching latency, database connection saturation, and 5xx error signatures with historical INC-1042.",
+        "description": "Found match INC-1042 (84% similarity). Historical root cause: \"Database connection pool exhaustion\". Previous outcome: SUCCESS (4m MTTR).",
+        "detail": "Current incident shares matching symptoms and operational signature with historical INC-1042.",
         "status": "completed"
       },
       {
-        "id": "18126eda-558a-45df-9c5a-0454a7c275ab",
-        "timestamp": "2026-09-29T12:53:13.366Z",
+        "id": "56485d4a-83a1-48b0-b13a-f19e08a099a3",
+        "timestamp": "2026-09-29T16:00:42.370Z",
         "source": "hindsight",
         "title": "CRITICAL MEMORY: Detected Past Failed Remediation (INC-1098)",
         "description": "Hindsight remembers that \"Increased database connection pool from 150 to 200 (FAILED REMEDIATION)\" previously FAILED for matching symptoms. Reason: Increasing DB connection pool did NOT fix the issue and exacerbated database load. Actual root cause was Redis cache timeouts. Avoid increasing DB pool when Redis timeout errors are present!. Alternative prioritized.",
         "status": "warning"
       },
       {
-        "id": "6007261f-95be-426a-9bca-e87675381977",
-        "timestamp": "2026-09-29T12:53:13.367Z",
+        "id": "3d913b73-4f52-4b12-a8ec-6c23437f05d2",
+        "timestamp": "2026-09-29T16:00:42.373Z",
         "source": "agent",
         "title": "Synthesized Multi-Candidate Root Cause Diagnosis",
-        "description": "Primary candidate: \"Redis cache connection starvation and socket timeout\" (High Confidence). Calibrated using evidence and Hindsight memories.",
+        "description": "Primary candidate: \"Redis cache connection starvation in payments-api\" (High Confidence). Calibrated using evidence and Hindsight memories.",
         "status": "completed"
       },
       {
-        "id": "b7562e4e-8c3b-4454-b90b-194d6e8bc07c",
-        "timestamp": "2026-09-29T12:53:13.368Z",
+        "id": "f615df5c-dcc3-4508-9213-cbc97723699e",
+        "timestamp": "2026-09-29T16:00:42.376Z",
         "source": "agent",
         "title": "Generated Prioritized Remediation Plan",
         "description": "Prepared 2 actions. Dangerous mutating operations routed to Human Approval Gate.",
         "status": "completed"
       },
       {
-        "id": "8f630fff-366d-4c52-8bfa-e2c07daac45b",
-        "timestamp": "2026-09-29T12:53:13.369Z",
+        "id": "37ce987c-62cc-422a-b301-80d6baf47a15",
+        "timestamp": "2026-09-29T16:00:42.381Z",
         "source": "engineer",
         "title": "Approved & Executed: \"Restart Redis Cache Pods & Trigger Cluster Failover\"",
-        "description": "[SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payme...",
+        "description": "[SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payments-api updated.\nPod...",
         "status": "completed"
       },
       {
-        "id": "e00cfca2-3830-460b-8038-1a9ecfcc36a9",
-        "timestamp": "2026-09-29T12:53:13.370Z",
+        "id": "ac932283-b6f3-440a-a0f1-6ab7294087ab",
+        "timestamp": "2026-09-29T16:00:42.384Z",
         "source": "hindsight",
         "title": "Experience Retained into Hindsight Memory Bank",
-        "description": "Saved resolution outcome (SUCCESS) to bank \"opsmemory-production\". Memory ID: 0acd3bc6-f290-4a1a-b43e-ba3d255def68. Future incidents will benefit from this experience!",
+        "description": "Saved resolution outcome (SUCCESS) to bank \"opsmemory-production\". Memory ID: 16ac9e03-6098-4808-a6b6-70dcd900275c. Future incidents will benefit from this experience!",
         "status": "completed"
       }
     ],
@@ -212,7 +212,7 @@
       {
         "id": "mem-1042-success",
         "incidentId": "INC-1042",
-        "relevanceScore": 96,
+        "relevanceScore": 84,
         "title": "Historical: Database connection pool exhaustion",
         "service": "payments-api",
         "rootCause": "Database connection pool exhaustion",
@@ -220,7 +220,7 @@
         "outcome": "success",
         "recoveryTimeMinutes": 4,
         "occurredAt": "2026-09-11T10:30:00.000Z",
-        "whyMatters": "Current incident shares matching latency, database connection saturation, and 5xx error signatures with historical INC-1042.",
+        "whyMatters": "Current incident shares matching symptoms and operational signature with historical INC-1042.",
         "memoryType": "experience",
         "engineerFeedback": "Increasing pool to 150 immediately cleared the 504 gateway timeouts. Similar incidents should check connection saturation first.",
         "sourceBank": "opsmemory-production",
@@ -229,7 +229,7 @@
       {
         "id": "mem-1098-failed",
         "incidentId": "INC-1098",
-        "relevanceScore": 96,
+        "relevanceScore": 80,
         "title": "Historical: Redis connection timeout causing downstream query pileups",
         "service": "payments-api",
         "rootCause": "Redis connection timeout causing downstream query pileups",
@@ -246,7 +246,7 @@
       {
         "id": "mem-1150-auth",
         "incidentId": "INC-1150",
-        "relevanceScore": 83,
+        "relevanceScore": 62,
         "title": "Historical: Uncached JWKS public key lookups under token refresh burst",
         "service": "auth-service",
         "rootCause": "Uncached JWKS public key lookups under token refresh burst",
@@ -263,7 +263,7 @@
       {
         "id": "mem-1205-memoryleak",
         "incidentId": "INC-1205",
-        "relevanceScore": 78,
+        "relevanceScore": 62,
         "title": "Historical: Memory leak in order streaming buffer introduced in v2.7.4",
         "service": "order-service",
         "rootCause": "Memory leak in order streaming buffer introduced in v2.7.4",
@@ -282,15 +282,15 @@
       {
         "id": "diag-redis",
         "rank": 1,
-        "rootCause": "Redis cache connection starvation and socket timeout",
+        "rootCause": "Redis cache connection starvation in payments-api",
         "confidence": "High",
-        "confidenceScore": 91,
+        "confidenceScore": 92,
         "confidenceLabel": "Historical match",
-        "summary": "Redis cluster nodes are dropping incoming connection requests, causing API workers to stall and saturate downstream database connections.",
+        "summary": "Redis cluster nodes are dropping incoming requests, causing payments-api workers to stall and saturate downstream connections.",
         "supportingEvidence": [
-          "Hindsight historical failure memory INC-1098 confirms increasing DB pool failed previously",
-          "Downstream queries piling up due to cache miss bursts",
-          "Socket timeout observed on cache client pool"
+          "Hindsight historical failure memory (INC-1098) confirms increasing DB pool failed previously",
+          "Downstream database queries piling up due to cache miss bursts",
+          "[ERROR] payments-api: TimeoutException: Timed out waiting for connection from pool \"pg-pool-main\""
         ],
         "supportingMemories": [
           "mem-1042-success",
@@ -299,44 +299,42 @@
           "mem-1205-memoryleak"
         ],
         "contradictoryEvidence": [
-          "Database connections are elevated, but Hindsight memory confirms this is a symptom rather than root cause"
+          "Database connections are at 97%, but Hindsight memory confirms this is a downstream symptom, not the root cause"
         ],
         "recommendedVerification": [
-          "Check Redis latency via `redis-cli --latency`",
-          "Verify Redis cluster node health and evicted keys count"
+          "Verify Redis cluster latency via `redis-cli --latency`",
+          "Inspect cache miss spikes and evicted keys in Grafana"
         ]
       },
       {
-        "id": "diag-3",
+        "id": "diag-infra",
         "rank": 2,
-        "rootCause": "External payment gateway upstream latency",
+        "rootCause": "Upstream network ingress saturation or downstream dependency timeout for payments-api",
         "confidence": "Low",
-        "confidenceScore": 34,
+        "confidenceScore": 38,
         "confidenceLabel": "Needs verification",
-        "summary": "Third-party gateway latency could be causing worker threads to hang awaiting HTTP responses.",
+        "summary": "Downstream microservice response lag could be causing connection queues to hold resources open in payments-api.",
         "supportingEvidence": [
-          "Elevated response latency"
+          "Response latency elevated to 4900ms"
         ],
         "supportingMemories": [],
-        "contradictoryEvidence": [
-          "Internal DB connection pool is 97% saturated before requests reach 3rd-party gateway"
-        ],
         "recommendedVerification": [
-          "Check third-party status page and outbound proxy latencies"
+          "Inspect distributed trace spans in OpenTelemetry / Jaeger",
+          "Verify ingress gateway connection pools"
         ]
       }
     ],
     "recommendedActions": [
       {
         "id": "act-1",
-        "title": "Inspect Active Database Connection Saturation",
-        "description": "Query PostgreSQL pg_stat_activity to inspect connection states (active vs idle in transaction).",
+        "title": "Inspect Active Workload Telemetry for payments-api",
+        "description": "Run diagnostic inspection on payments-api active connections, thread states, and pod health.",
         "category": "investigation",
         "isDangerous": false,
         "requiresApproval": false,
         "approvalStatus": "approved",
         "estimatedRisk": "Low",
-        "commandOrPayload": "kubectl exec -it postgres-primary-0 -- psql -U postgres -c \"SELECT count(*), state FROM pg_stat_activity GROUP BY state;\""
+        "commandOrPayload": "kubectl top pods -l app=payments-api -n production"
       },
       {
         "id": "act-redis-fix",
@@ -350,99 +348,96 @@
         "commandOrPayload": "kubectl rollout restart deployment/redis-cache-cluster -n production",
         "executionResult": {
           "success": true,
-          "output": "[SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payments-api updated.\nPods rolling: 6/6 ready in 18s.\nMetrics normalizing: error rate dropping from 19.5% -> 0.4%, latency -> 140ms.",
-          "executedAt": "2026-09-29T12:53:13.369Z"
+          "output": "[SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payments-api updated.\nPods rolling: replicas verified ready in 18s.\nMetrics normalizing: error rate dropping from 19.5% -> 0.2%, latency -> 490ms.",
+          "executedAt": "2026-09-29T16:00:42.381Z"
         }
       }
     ],
-    "resolvedAt": "2026-09-29T12:53:13.370Z",
+    "resolvedAt": "2026-09-29T16:00:42.384Z",
     "recoveryTimeMinutes": 1,
     "feedback": {
       "diagnosisAccuracy": "correct",
       "fixOutcome": "success",
       "comments": "Scaling connection pool immediately cleared 504 timeouts. Verified by SRE on-call.",
-      "submittedAt": "2026-09-29T12:53:13.370Z",
+      "submittedAt": "2026-09-29T16:00:42.383Z",
       "engineerName": "Lead SRE",
       "retainedToHindsight": true
     },
     "postMortem": {
-      "id": "0dad867b-a37a-4e1a-aeac-f4745d601fcd",
+      "id": "ece3546a-7c15-49b1-b86d-f8516768147d",
       "incidentId": "INC-TEST-1",
       "title": "Post-Mortem: Test Surge on Payments API (payments-api)",
-      "summary": "On 29/9/2026, the payments-api experienced a P1 incident resulting in elevated latency (145ms) and a 0.4% error rate. The OpsMemory AI agent correlated symptoms, recalled historical incident patterns from Hindsight, and recommended targeted remediation that restored full service stability within 1 minutes.",
+      "summary": "On 29/9/2026, the payments-api experienced a P1 incident resulting in elevated latency (588ms) and a 1% error rate. The OpsMemory AI agent correlated symptoms, recalled historical incident patterns from Hindsight, and recommended targeted remediation that restored full service stability within 1 minutes.",
       "timeline": [
         {
-          "time": "06:23:13 pm",
+          "time": "09:30:42 pm",
           "event": "Parsed Incident Metadata & Entities: Identified primary affected service: \"payments-api\" (Severity: P1). Extracted metrics baseline."
         },
         {
-          "time": "06:23:13 pm",
+          "time": "09:30:42 pm",
           "event": "Analyzed Application Logs & Metric Anomalies: Correlated telemetry: Error rate 19.5%, Latency 4900ms, DB connection saturation 97%."
         },
         {
-          "time": "06:23:13 pm",
+          "time": "09:30:42 pm",
           "event": "Queried Hindsight Memory Bank \"opsmemory-production\": Executing multi-strategy recall (TEMPR) for service \"payments-api\" and observed symptom signatures..."
         },
         {
-          "time": "06:23:13 pm",
-          "event": "Recalled 4 Historical Incidents from Hindsight: Found match INC-1042 (96% similarity). Historical root cause: \"Database connection pool exhaustion\". Previous outcome: SUCCESS (4m MTTR)."
+          "time": "09:30:42 pm",
+          "event": "Recalled 4 Historical Incidents from Hindsight: Found match INC-1042 (84% similarity). Historical root cause: \"Database connection pool exhaustion\". Previous outcome: SUCCESS (4m MTTR)."
         },
         {
-          "time": "06:23:13 pm",
+          "time": "09:30:42 pm",
           "event": "CRITICAL MEMORY: Detected Past Failed Remediation (INC-1098): Hindsight remembers that \"Increased database connection pool from 150 to 200 (FAILED REMEDIATION)\" previously FAILED for matching symptoms. Reason: Increasing DB connection pool did NOT fix the issue and exacerbated database load. Actual root cause was Redis cache timeouts. Avoid increasing DB pool when Redis timeout errors are present!. Alternative prioritized."
         },
         {
-          "time": "06:23:13 pm",
-          "event": "Synthesized Multi-Candidate Root Cause Diagnosis: Primary candidate: \"Redis cache connection starvation and socket timeout\" (High Confidence). Calibrated using evidence and Hindsight memories."
+          "time": "09:30:42 pm",
+          "event": "Synthesized Multi-Candidate Root Cause Diagnosis: Primary candidate: \"Redis cache connection starvation in payments-api\" (High Confidence). Calibrated using evidence and Hindsight memories."
         },
         {
-          "time": "06:23:13 pm",
+          "time": "09:30:42 pm",
           "event": "Generated Prioritized Remediation Plan: Prepared 2 actions. Dangerous mutating operations routed to Human Approval Gate."
         },
         {
-          "time": "06:23:13 pm",
-          "event": "Approved & Executed: \"Restart Redis Cache Pods & Trigger Cluster Failover\": [SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payme..."
+          "time": "09:30:42 pm",
+          "event": "Approved & Executed: \"Restart Redis Cache Pods & Trigger Cluster Failover\": [SRE-RUNBOOK-EXEC] Successfully executed: kubectl rollout restart deployment/redis-cache-cluster -n production\nStatus: deployment.apps/payments-api updated.\nPod..."
         },
         {
-          "time": "06:23:13 pm",
-          "event": "Experience Retained into Hindsight Memory Bank: Saved resolution outcome (SUCCESS) to bank \"opsmemory-production\". Memory ID: 0acd3bc6-f290-4a1a-b43e-ba3d255def68. Future incidents will benefit from this experience!"
+          "time": "09:30:42 pm",
+          "event": "Experience Retained into Hindsight Memory Bank: Saved resolution outcome (SUCCESS) to bank \"opsmemory-production\". Memory ID: 16ac9e03-6098-4808-a6b6-70dcd900275c. Future incidents will benefit from this experience!"
         }
       ],
-      "impact": "Affected approximately 180 customer payment transactions over 1 minutes. No persistent data corruption occurred.",
+      "impact": "Affected approximately 180 payments-api operations over 1 minutes. No persistent data corruption detected.",
       "symptoms": [
-        "5xx error rate elevated to 0.4%",
-        "Average API response latency peaked at 145ms",
-        "Database connection pool saturated at 42%",
-        "Upstream Nginx ingress dropped requests with 504 Gateway Timeout"
+        "Average API response latency peaked at 588ms",
+        "Application logs emitted: [ERROR] payments-api: TimeoutException: Timed out waiting for connection from pool \"pg-pool-main\""
       ],
-      "rootCause": "Redis cache connection starvation and socket timeout",
+      "rootCause": "Redis cache connection starvation in payments-api",
       "contributingFactors": [
-        "Surge in concurrent checkout requests",
-        "Database connection pool cap was lower than peak concurrency requirements",
-        "Pattern matched historical incident INC-1042"
+        "Sudden surge in concurrent payments-api requests",
+        "Pattern matched historical incident INC-1042 in Hindsight memory"
       ],
       "resolution": "Restart Redis Cache Pods & Trigger Cluster Failover",
       "whatWorked": [
-        "Hindsight memory recalled INC-1042 with 96% similarity, cutting investigation time by 70%",
-        "Human-in-the-loop approval gate allowed confident execution of remediation runbook",
-        "Targeted pool scaling immediately normalized request latency"
+        "Hindsight memory recalled INC-1042 with 84% similarity, cutting investigation time significantly",
+        "Human-in-the-loop approval gate allowed confident verification of remediation runbook",
+        "Targeted remediation immediately restored baseline performance"
       ],
       "whatFailed": [
-        "Historical attempt to increase DB pool during Redis bottleneck was recalled as a failure pattern"
+        "Historical attempt to apply past remediation was recalled as an ineffective pattern, avoiding repeated mistake"
       ],
       "recoveryTimeMinutes": 1,
       "lessonsLearned": [
-        "Connection pool limits must scale dynamically or be sized for 3x baseline burst capacity.",
+        "Service resource limits on payments-api must scale dynamically with burst throughput.",
         "Hindsight memory retention of this incident ensures future occurrences will be identified in seconds.",
         "Continuous correlation of deployment diffs with metric spikes provides immediate diagnostic certainty."
       ],
       "actionItems": [
-        "Tune automated connection pooling in payments-api Kubernetes deployment manifest (P1 - DevOps)",
-        "Configure Prometheus alert for DB connection pool utilization > 80% (P2 - SRE)",
+        "Review and tune resource allocations in payments-api Kubernetes deployment manifest (P1)",
+        "Configure Prometheus alert thresholds for payments-api telemetry (P2)",
         "Retain this post-mortem into Hindsight memory bank for continuous AI agent learning (Completed)"
       ],
       "status": "retained_to_hindsight",
-      "retainedAt": "2026-09-29T12:53:13.455Z"
+      "retainedAt": "2026-09-29T16:00:42.491Z"
     }
   },
   {

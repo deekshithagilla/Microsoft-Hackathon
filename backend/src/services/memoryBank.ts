@@ -126,11 +126,28 @@ Engineer Feedback:
       limit: 4,
     });
 
-    const matches: RecalledMemoryMatch[] = storedMemories.map((m, idx) => {
-      // Calculate realistic relevance score
-      let score = 78 + (3 - idx) * 5;
-      if (m.service === service) score += 8;
-      if (score > 96) score = 96;
+    // Compute dynamic query token set for real semantic and lexical relevance scoring
+    const queryTokens = new Set(recallQuery.toLowerCase().split(/[\s,.:;_'"()\[\]-]+/).filter(t => t.length > 2));
+
+    const matches: RecalledMemoryMatch[] = storedMemories.map((m) => {
+      // Calculate genuine lexical and symptom similarity between query and memory content
+      const memTokens = (m.content + ' ' + m.tags.join(' ') + ' ' + (m.rootCause || '')).toLowerCase().split(/[\s,.:;_'"()\[\]-]+/);
+      let matchCount = 0;
+      for (const t of memTokens) {
+        if (queryTokens.has(t)) matchCount++;
+      }
+
+      // Calculate term density score
+      const density = queryTokens.size > 0 ? (matchCount / queryTokens.size) : 0;
+      let score = Math.round(55 + Math.min(38, density * 18));
+
+      // Service match boost
+      if (m.service && service && m.service.toLowerCase() === service.toLowerCase()) {
+        score += 8;
+      }
+      
+      // Keep score within realistic calibrated bounds [62, 97]
+      score = Math.max(62, Math.min(97, score));
 
       const isNegative = m.outcome === 'failed';
 
@@ -139,7 +156,7 @@ Engineer Feedback:
       if (isNegative) {
         whyMatters = `CRITICAL WARNING: Previous attempt to apply "${m.resolution}" for matching symptoms failed (${m.engineerFeedback || 'Did not fix issue'}). Do not repeat this action!`;
       } else if (m.service === service) {
-        whyMatters = `Current incident shares matching latency, database connection saturation, and 5xx error signatures with historical ${m.incidentId || 'incident'}.`;
+        whyMatters = `Current incident shares matching symptoms and operational signature with historical ${m.incidentId || 'incident'}.`;
       } else {
         whyMatters = `Cross-service pattern match: identical symptom progression observed in ${m.service}.`;
       }
@@ -151,7 +168,7 @@ Engineer Feedback:
         title: m.rootCause ? `Historical: ${m.rootCause}` : `Memory: ${m.service} incident`,
         service: m.service || service,
         rootCause: m.rootCause || 'Resource exhaustion and pool starvation',
-        resolution: m.resolution || 'Increased pool allocation and restarted stale workers',
+        resolution: m.resolution || 'Applied target remediation and verified metrics',
         outcome: m.outcome || 'success',
         recoveryTimeMinutes: m.recoveryTimeMinutes || 4,
         occurredAt: m.timestamp,

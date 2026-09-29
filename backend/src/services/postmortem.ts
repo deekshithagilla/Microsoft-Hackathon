@@ -20,45 +20,62 @@ export class PostMortemService {
 
     const recoveryMinutes = incident.recoveryTimeMinutes || 4;
 
+    // Build dynamic symptoms based on actual elevated telemetry
+    const dynamicSymptoms: string[] = [];
+    if (incident.metrics.errorRate > 2) {
+      dynamicSymptoms.push(`5xx error rate elevated to ${incident.metrics.errorRate}%`);
+    }
+    if (incident.metrics.latencyMs > 500) {
+      dynamicSymptoms.push(`Average API response latency peaked at ${incident.metrics.latencyMs}ms`);
+    }
+    if (incident.metrics.dbConnectionsPercent > 70) {
+      dynamicSymptoms.push(`Database connection pool utilization saturated at ${incident.metrics.dbConnectionsPercent}%`);
+    }
+    if (incident.metrics.cpuPercent > 70) {
+      dynamicSymptoms.push(`Container CPU utilization breached threshold at ${incident.metrics.cpuPercent}%`);
+    }
+    if (incident.metrics.memoryPercent > 70) {
+      dynamicSymptoms.push(`Memory utilization elevated to ${incident.metrics.memoryPercent}%`);
+    }
+    if (incident.logs.length > 0) {
+      dynamicSymptoms.push(`Application logs emitted: ${incident.logs[0]}`);
+    }
+
+    const estimatedImpactCount = Math.round(incident.metrics.errorRate * (incident.metrics.latencyMs > 3000 ? 420 : 180));
+
     const draft: PostMortem = {
       id: uuidv4(),
       incidentId: incident.id,
       title: `Post-Mortem: ${incident.title} (${incident.service})`,
       summary: `On ${new Date(incident.createdAt).toLocaleDateString()}, the ${incident.service} experienced a ${incident.severity} incident resulting in elevated latency (${incident.metrics.latencyMs}ms) and a ${incident.metrics.errorRate}% error rate. The OpsMemory AI agent correlated symptoms, recalled historical incident patterns from Hindsight, and recommended targeted remediation that restored full service stability within ${recoveryMinutes} minutes.`,
       timeline,
-      impact: `Affected approximately ${Math.round(incident.metrics.errorRate * 450)} customer payment transactions over ${recoveryMinutes} minutes. No persistent data corruption occurred.`,
-      symptoms: [
-        `5xx error rate elevated to ${incident.metrics.errorRate}%`,
-        `Average API response latency peaked at ${incident.metrics.latencyMs}ms`,
-        `Database connection pool saturated at ${incident.metrics.dbConnectionsPercent}%`,
-        'Upstream Nginx ingress dropped requests with 504 Gateway Timeout',
-      ],
-      rootCause: primaryDiagnosis?.rootCause || 'Database connection pool exhaustion under sudden traffic volume',
+      impact: `Affected approximately ${estimatedImpactCount > 0 ? estimatedImpactCount.toLocaleString() : '100+'} ${incident.service} operations over ${recoveryMinutes} minutes. No persistent data corruption detected.`,
+      symptoms: dynamicSymptoms.length > 0 ? dynamicSymptoms : [`Elevated latency anomaly on ${incident.service}`],
+      rootCause: primaryDiagnosis?.rootCause || `Operational anomaly in ${incident.service}`,
       contributingFactors: [
-        incident.deployment ? `Recent deployment ${incident.deployment.version} introduced unoptimized batch queries` : 'Surge in concurrent checkout requests',
-        'Database connection pool cap was lower than peak concurrency requirements',
-        topMemory ? `Pattern matched historical incident ${topMemory.incidentId || 'INC-1042'}` : 'Absence of proactive connection alerts',
+        incident.deployment ? `Recent deployment ${incident.deployment.version} introduced workload or configuration change` : `Sudden surge in concurrent ${incident.service} requests`,
+        topMemory ? `Pattern matched historical incident ${topMemory.incidentId || 'Incident'} in Hindsight memory` : `First-time occurrence of this operational signature`,
       ],
-      resolution: executedAction?.title || 'Scaled database connection pool from 100 to 150 and verified connection release metrics.',
+      resolution: executedAction?.title || `Applied target remediation for ${incident.service} and normalized telemetry.`,
       whatWorked: [
-        topMemory ? `Hindsight memory recalled ${topMemory.incidentId} with ${topMemory.relevanceScore}% similarity, cutting investigation time by 70%` : 'Rapid automated evidence collection and metric correlation',
-        'Human-in-the-loop approval gate allowed confident execution of remediation runbook',
-        'Targeted pool scaling immediately normalized request latency',
+        topMemory ? `Hindsight memory recalled ${topMemory.incidentId} with ${topMemory.relevanceScore}% similarity, cutting investigation time significantly` : 'Rapid automated evidence collection and metric correlation',
+        'Human-in-the-loop approval gate allowed confident verification of remediation runbook',
+        'Targeted remediation immediately restored baseline performance',
       ],
       whatFailed: [
         incident.memoryMatches.some(m => m.isNegativeExample) 
-          ? 'Historical attempt to increase DB pool during Redis bottleneck was recalled as a failure pattern'
-          : 'Initial static alert thresholds did not warn prior to complete connection exhaustion',
+          ? `Historical attempt to apply past remediation was recalled as an ineffective pattern, avoiding repeated mistake`
+          : 'Initial alert thresholds fired after threshold breach rather than predicting saturation',
       ],
       recoveryTimeMinutes: recoveryMinutes,
       lessonsLearned: [
-        'Connection pool limits must scale dynamically or be sized for 3x baseline burst capacity.',
+        `Service resource limits on ${incident.service} must scale dynamically with burst throughput.`,
         'Hindsight memory retention of this incident ensures future occurrences will be identified in seconds.',
         'Continuous correlation of deployment diffs with metric spikes provides immediate diagnostic certainty.',
       ],
       actionItems: [
-        'Tune automated connection pooling in payments-api Kubernetes deployment manifest (P1 - DevOps)',
-        'Configure Prometheus alert for DB connection pool utilization > 80% (P2 - SRE)',
+        `Review and tune resource allocations in ${incident.service} Kubernetes deployment manifest (P1)`,
+        `Configure Prometheus alert thresholds for ${incident.service} telemetry (P2)`,
         'Retain this post-mortem into Hindsight memory bank for continuous AI agent learning (Completed)',
       ],
       status: 'draft',
