@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   ShieldAlert, 
   Brain, 
@@ -8,18 +7,25 @@ import {
   Activity, 
   Database,
   Layers,
-  Sparkles
+  Sparkles,
+  LogOut,
+  UserCheck,
+  Globe
 } from 'lucide-react';
+import { UserProfile } from './AuthModal';
 
 interface HeaderProps {
-  currentView: 'dashboard' | 'incident' | 'learning' | 'memory' | 'simulator';
-  onNavigate: (view: 'dashboard' | 'incident' | 'learning' | 'memory' | 'simulator') => void;
+  currentView: 'dashboard' | 'incident' | 'learning' | 'memory' | 'simulator' | 'landing';
+  onNavigate: (view: 'dashboard' | 'incident' | 'learning' | 'memory' | 'simulator' | 'landing') => void;
   activeIncidentsCount: number;
   hindsightConnected: boolean;
   hindsightBankId: string;
   onOpenCreate: () => void;
   onOpenSimulator: () => void;
   onReset: () => void;
+  currentUser?: UserProfile | null;
+  onSignOut?: () => void;
+  onOpenAuth?: (mode: 'login' | 'signup') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,6 +37,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCreate,
   onOpenSimulator,
   onReset,
+  currentUser,
+  onSignOut,
+  onOpenAuth,
 }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
@@ -56,11 +65,21 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Hindsight Status & Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
+            {/* View Landing Page link */}
+            <button
+              onClick={() => onNavigate('landing')}
+              className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-md transition"
+              title="Return to Product Landing Page"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Landing Page</span>
+            </button>
+
             {/* Hindsight Bank Indicator */}
             <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700">
               <span className={`w-2 h-2 rounded-full ${hindsightConnected ? 'bg-emerald-500' : 'bg-blue-500'} animate-pulse`} />
-              <span className="font-medium text-slate-500">Hindsight Bank:</span>
+              <span className="font-medium text-slate-500">Bank:</span>
               <span className="font-mono font-semibold text-slate-800">{hindsightBankId}</span>
             </div>
 
@@ -101,6 +120,37 @@ export const Header: React.FC<HeaderProps> = ({
               <PlusCircle className="w-4 h-4" />
               <span>Create Incident</span>
             </button>
+
+            {/* User Profile / Auth State */}
+            {currentUser ? (
+              <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+                <div className="hidden sm:flex flex-col text-right">
+                  <span className="text-xs font-bold text-slate-800 leading-tight">{currentUser.name}</span>
+                  <span className="text-[10px] text-slate-500 truncate max-w-[120px]">{currentUser.role}</span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+                {onSignOut && (
+                  <button
+                    onClick={onSignOut}
+                    title="Sign Out"
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+                <button
+                  onClick={() => onOpenAuth?.('login')}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold shadow-xs transition"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
