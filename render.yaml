@@ -1,0 +1,32 @@
+services:
+  # Official Hindsight Memory Service
+  - type: web
+    name: opsmemory-hindsight
+    runtime: image
+    image:
+      url: ghcr.io/vectorize-io/hindsight:latest
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8888
+
+  # OpsMemory Backend API
+  - type: web
+    name: opsmemory-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HINDSIGHT_BANK_ID
+        value: opsmemory-production
+      - key: HINDSIGHT_URL
+        fromService:
+          type: web
+          name: opsmemory-hindsight
+          property: host

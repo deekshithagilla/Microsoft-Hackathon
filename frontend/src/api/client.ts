@@ -7,7 +7,9 @@ import {
   SimulationScenario 
 } from '../types';
 
-const BASE_URL = '/api';
+const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)
+  ? `${(import.meta.env.VITE_API_URL as string).replace(/\/$/, '')}/api`
+  : '/api';
 
 export const api = {
   // Incidents
