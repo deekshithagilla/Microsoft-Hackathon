@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -19,7 +19,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Request logger
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (!req.path.includes('/stream')) {
     console.log(`[API] ${req.method} ${req.path}`);
   }
@@ -43,7 +43,7 @@ const frontendDistPath = candidateDistPaths.find(p => fs.existsSync(p));
 if (frontendDistPath) {
   console.log(`[Static] Serving production frontend from ${frontendDistPath}`);
   app.use(express.static(frontendDistPath));
-  app.get('*', (req, res, next) => {
+  app.get('*', (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api')) {
       return next();
     }
