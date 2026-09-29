@@ -54,10 +54,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     onLoginSuccess(user);
   };
 
-  const handleDemoSignIn = (presetRole: string = 'Lead Platform SRE') => {
+  const handleDemoSignIn = (presetRole: string = 'Lead Platform SRE & Incident Commander') => {
     const demoUser: UserProfile = {
-      name: 'Alex Rivera',
-      email: 'alex.rivera@enterprise.io',
+      name: 'Deekshitha Gilla',
+      email: 'deekshitha.gilla@enterprise.io',
       role: presetRole,
       team: 'Core Platform & Incident Response',
     };
@@ -99,7 +99,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       <span>Hackathon Judge & Reviewer Quick Access</span>
                     </div>
                     <p className="text-[11px] text-blue-800">
-                      Skip credential entry and immediately launch the live console as Lead Platform SRE.
+                      Sign in instantly as <strong className="font-semibold text-blue-950">Deekshitha Gilla</strong> (Lead Platform SRE).
                     </p>
                   </div>
                   <button
@@ -107,7 +107,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onClick={() => handleDemoSignIn()}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition shrink-0 flex items-center justify-center space-x-1.5"
                   >
-                    <span>1-Click Demo Sign In</span>
+                    <span>⚡ 1-Click Sign In (Deekshitha)</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -160,7 +160,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                           required
                           value={name}
                           onChange={e => setName(e.target.value)}
-                          placeholder="e.g. Alex Rivera"
+                          placeholder="e.g. Deekshitha Gilla"
                           className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                         />
                       </div>
@@ -203,7 +203,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       required
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="sre@enterprise.io"
+                      placeholder="deekshitha.gilla@enterprise.io"
                       className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                     />
                   </div>
@@ -345,11 +345,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 "When our payment database saturated on Black Friday, OpsMemory recalled the exact fix and failure warning from two weeks prior within seconds."
               </p>
               <div className="flex items-center space-x-2 mt-2">
-                <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">
-                  A
+                <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+                  D
                 </div>
-                <span className="text-[11px] font-bold text-slate-800">Alex Rivera</span>
-                <span className="text-[10px] text-slate-500">• Lead Platform SRE</span>
+                <span className="text-[11px] font-bold text-slate-800">Deekshitha Gilla</span>
+                <span className="text-[10px] text-slate-500">• Lead Platform SRE & Incident Commander</span>
               </div>
             </div>
           </div>
