@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Official Hindsight Memory Server
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    container_name: opsmemory-hindsight
+    ports:
+      - "8888:8888" # API Server
+      - "9999:9999" # Control Plane Web UI
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    environment:
+      - PORT=8888
+    restart: unless-stopped
+
+  # OpsMemory Backend Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: opsmemory-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - HINDSIGHT_URL=http://hindsight:8888
+      - HINDSIGHT_BANK_ID=opsmemory-production
+      - NODE_ENV=production
+    depends_on:
+      - hindsight
+    restart: unless-stopped
+
+  # OpsMemory Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: opsmemory-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  hindsight-data:
