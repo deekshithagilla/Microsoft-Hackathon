@@ -110,5 +110,52 @@
     "memoryMatches": [],
     "diagnosisCandidates": [],
     "recommendedActions": []
+  },
+  {
+    "id": "INC-1746",
+    "title": "Payments API latency increased to 5.2 seconds after today's ",
+    "service": "payments-api",
+    "severity": "P1",
+    "status": "triggered",
+    "description": "Payments API latency increased to 5.2 seconds after today's deployment. Database connections reached 98% with 504 Gateway Timeouts.",
+    "environment": "production",
+    "createdAt": "2026-09-29T16:23:39.825Z",
+    "updatedAt": "2026-09-29T16:23:39.827Z",
+    "metrics": {
+      "errorRate": 18.5,
+      "latencyMs": 4800,
+      "cpuPercent": 75,
+      "memoryPercent": 68,
+      "dbConnectionsPercent": 98,
+      "timestamp": "2026-09-29T16:23:38.668Z"
+    },
+    "deployment": {
+      "version": "v2.8.2",
+      "deployedAt": "2026-09-29T15:53:38.669Z",
+      "commitHash": "8f7a1b2",
+      "author": "deploy-bot@opsmemory.io",
+      "description": "Production release deployment",
+      "changedFiles": [
+        "config/production.json",
+        "src/db/connection.ts"
+      ]
+    },
+    "logs": [
+      "[ERROR] TimeoutException: Timed out waiting for connection from pool \"pg-pool-main\"",
+      "[FATAL] HTTP 504 Gateway Timeout for POST /v1/charges"
+    ],
+    "timeline": [
+      {
+        "id": "8ce0d080-564d-4318-becb-e0830707f3b6",
+        "timestamp": "2026-09-29T16:23:39.825Z",
+        "source": "system",
+        "title": "Incident Registered",
+        "description": "Incident INC-1746 created for service \"payments-api\". Ready for investigation.",
+        "status": "completed"
+      }
+    ],
+    "memoryMatches": [],
+    "diagnosisCandidates": [],
+    "recommendedActions": []
   }
 ]
